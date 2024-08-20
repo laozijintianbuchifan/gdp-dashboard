@@ -3,7 +3,6 @@ import pandas as pd
 import math
 from pathlib import Path
 import requests
-from lxml import etree
 
 url = "https://q.10jqka.com.cn/gn/detail/field/199112/order/desc/page/2/ajax/1/code/308016"
 
