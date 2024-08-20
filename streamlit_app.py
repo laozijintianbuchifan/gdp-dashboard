@@ -2,150 +2,30 @@ import streamlit as st
 import pandas as pd
 import math
 from pathlib import Path
+import requests
+from lxml import etree
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
-)
+url = "https://q.10jqka.com.cn/gn/detail/field/199112/order/desc/page/2/ajax/1/code/308016"
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+payload = {}
+headers = {
+  'Accept': 'text/html, */*; q=0.01',
+  'Accept-Language': 'zh-CN,zh;q=0.9',
+  'Connection': 'keep-alive',
+  'Cookie': 'spversion=20130314; _ga=GA1.1.1589657450.1724071969; u_ukey=A10702B8689642C6BE607730E11E6E4A; u_uver=1.0.0; u_dpass=Xv%2BiACHfMqImFGDWTrtiIIPO6khZXkls35aAYsbVGru5I0qmXNIH8pNG0YmFsXOKHi80LrSsTFH9a%2B6rtRvqGg%3D%3D; u_did=4D4028E4EDAF492D9B8BF386EDC20E4D; u_ttype=WEB; user=MDptb183MjkyNTM5Njg6Ok5vbmU6NTAwOjczOTI1Mzk2ODo3LDExMTExMTExMTExLDQwOzQ0LDExLDQwOzYsMSw0MDs1LDEsNDA6Ojo6NzI5MjUzOTY4OjE3MjQwNzIzODU6OjoxNzI0MDcyMjgwOjYwNDgwMDowOjFjYTFkNWE5NTBmZTdmNmQ0NmRiM2E0OTIwMGI2Y2QyZDpkZWZhdWx0XzQ6MQ%3D%3D; userid=729253968; u_name=mo_729253968; escapename=mo_729253968; ticket=28f2815bd7ef1716e2f0f1967ca80a9d; user_status=0; utk=f11e171b152ba6181887d1adb1c9ea2b; quantoken=acb3c26a52dda616b66b5843608cb0700a642bb5b327a8b82874f4a6fad88d039be2b057b2d9cbfd771144a3d33db5f8264cc03e20dc5c88b4cead8613cee28ce45a0a5325c2a229eb24bf5dbbaaa890; searchGuide=sg; Hm_lvt_78c58f01938e4d85eaf619eae71b4ed1=1724069167,1724080363; historystock=001298%7C*%7C300468%7C*%7C002369%7C*%7C600839; _ga_KQBDS1VPQF=GS1.1.1724080743.3.1.1724082501.0.0.0; v=Ay2F4K6aN0jAXtOkQXByWB1dPMKiimVP67_FNG8za2c320M8N9pxLHsO1QP8',
+  'Referer': 'https://q.10jqka.com.cn/gn/detail/code/308016/',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-origin',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+  'X-Requested-With': 'XMLHttpRequest',
+  'hexin-v': 'Ay2F4K6aN0jAXtOkQXByWB1dPMKiimVP67_FNG8za2c320M8N9pxLHsO1QP8',
+  'sec-ch-ua': '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"',
+  'sec-ch-ua-mobile': '?0',
+  'sec-ch-ua-platform': '"Windows"'
+}
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+response = requests.request("GET", url, headers=headers, data=payload)
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
-
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
-
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
-
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
-
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
-
-    return gdp_df
-
-gdp_df = get_gdp_data()
-
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+st.write(response.text)
+st.write("aaaaaa")
